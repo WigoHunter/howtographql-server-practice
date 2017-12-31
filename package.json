@@ -1,0 +1,27 @@
+{
+  "name": "gserver",
+  "version": "1.0.0",
+  "main": "./src/index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "nodemon ./src/index.js --exec babel-node",
+    "mongod": "mongod --dbpath ./data/db"
+  },
+  "dependencies": {
+    "apollo-server-express": "^1.3.2",
+    "body-parser": "^1.18.2",
+    "dataloader": "^1.3.0",
+    "express": "^4.16.2",
+    "graphql": "^0.12.3",
+    "graphql-tools": "^2.14.1",
+    "mongodb": "^3.0.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-stage-2": "^6.24.1",
+    "nodemon": "^1.14.6"
+  }
+}
