@@ -8,7 +8,7 @@ const typeDefs = `
         url: String!
         description: String!
         postedBy: User
-        votes: [Vote!]!
+        votes: [Vote]
     }
 
     type Query {
@@ -50,6 +50,25 @@ const typeDefs = `
         id: ID!
         user: User!
         link: Link!
+    }
+
+    type Subscription {
+        Link(filter: LinkSubscriptionFilter): LinkSubscriptionPayload
+    }
+
+    input LinkSubscriptionFilter {
+        mutation_in: [_ModelMutationType!]
+    }
+
+    type LinkSubscriptionPayload {
+        mutation: _ModelMutationType!
+        node: Link
+    }
+
+    enum _ModelMutationType {
+        CREATED
+        UPDATED
+        DELETED
     }
 `;
 

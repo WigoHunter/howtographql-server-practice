@@ -1,4 +1,20 @@
 import { ObjectID } from 'mongodb';
+import validUrl from 'valid-url';
+
+import pubsub from '../pubsub';
+
+class ValidationError extends Error {
+    constructor(msg, field) {
+        super(msg);
+        this.field = field;
+    }
+}
+
+const assertValidLink = ({ url }) => {
+    if (!validUrl.isUri(url)) {
+        throw new ValidationError("Link validation error: invalid url.", "url");
+    }
+}
 
 module.exports = {
     Query: {
@@ -17,9 +33,19 @@ module.exports = {
 
     Mutation: {
         createLink: async (root, data, { mongo: { Links }, user }) => {
+            assertValidLink(data);
             const newLink = Object.assign({ postedById: user && user._id }, data);
             const response = await Links.insert(newLink);
-            return Object.assign({ id: response.insertedIds[0] }, newLink);
+
+            newLink.id = response.insertedIds[0];
+            pubsub.publish('Link', {
+                Link: {
+                    mutation: 'CREATED',
+                    node: newLink,
+                }
+            });
+
+            return newLink;
         },
 
         createUser: async (root, data, { mongo: { Users } }) => {
@@ -61,16 +87,16 @@ module.exports = {
             return await userLoader.load(postedById);
         },
 
-        votes: async ({ _id }, data, { mongo: { Votes } }) => {
-            return await Votes.find({ linkId: _id }).toArray();
+        votes: async ({ _id }, data, { dataloaders: { voteLoader } }) => {
+            return [].concat(await voteLoader.load(_id));
         },
     },
 
     User: {
         id: root => root._id || root.id,
 
-        votes: async ({ _id }, data, { mongo: { Votes } }) => {
-            return await Votes.find({ userId: _id }).toArray();
+        votes: async ({ _id }, data, { dataloaders: { voteLoader } }) => {
+            return [].concat(await voteLoader.load(_id));
         },
     },
 
@@ -81,8 +107,14 @@ module.exports = {
             return await userLoader.load(userId);
         },
 
-        link: async ({ linkId }, data, { mongo: { Links } }) => {
-            return await Links.findOne({ _id: linkId });
-        }
-    }
+        link: async ({ linkId }, data, { dataloaders: { linkLoader } }) => {
+            return await linkLoader.load(linkId);
+        },
+    },
+
+    Subscription: {
+        Link: {
+            subscribe: () => pubsub.asyncIterator('Link'),
+        },
+    },
 };
