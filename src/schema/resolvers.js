@@ -16,10 +16,40 @@ const assertValidLink = ({ url }) => {
     }
 }
 
+const buildFilters = ({ OR = [], description_contains, url_contains }) => {
+    const filter = (description_contains || url_contains) ? {} : null;
+
+    if(description_contains) {
+        filter.description = {$regex: `.*${description_contains}.*`};
+    }
+
+    if(url_contains) {
+        filter.url = {$regex: `.*${url_contains}.*`};
+    }
+
+    let filters = filter ? [filter] : [];
+    for (let i = 0; i < OR.length; i++) {
+        filters = filters.concat(buildFilters(OR[i]));
+    }
+
+    return filters;
+}
+
 module.exports = {
     Query: {
-        allLinks: async (root, data, { mongo: { Links } }) => {
-            return await Links.find({}).toArray();
+        allLinks: async (root, { filter, first, skip }, { mongo: { Links, Users } }) => {
+            let query = filter ? {$or: buildFilters(filter)} : {};
+            const cursor = Links.find(query);
+
+            if(first) {
+                cursor.limit(first);
+            } 
+
+            if(skip) {
+                cursor.skip(skip);
+            }
+            
+            return cursor.toArray();
         },
 
         allUsers: async (root, data, { mongo: { Users } }) => {
@@ -66,7 +96,16 @@ module.exports = {
             };
 
             const response = await Votes.insert(newVote);
-            return Object.assign({ id: response.insertedIds[0] }, newVote);
+            newVote.id = response.insertedIds[0];
+
+            pubsub.publish('Vote', {
+                Vote: {
+                    mutation: 'CREATED',
+                    node: newVote,
+                }
+            });
+
+            return newVote;
         },
 
         signinUser: async (root, data, { mongo: { Users } }) => {
@@ -116,5 +155,9 @@ module.exports = {
         Link: {
             subscribe: () => pubsub.asyncIterator('Link'),
         },
+
+        Vote: {
+            subscribe: () => pubsub.asyncIterator('Vote'),
+        }
     },
 };
